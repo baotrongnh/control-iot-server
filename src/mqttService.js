@@ -1,31 +1,31 @@
-const mqtt = require("mqtt");
-const { TOPIC_LIGHT, TOPIC_ALARM, TOPIC_DOOR, TOPIC_STATUS } = require("./topic");
+const mqtt = require("mqtt")
+const { TOPIC_LIGHT, TOPIC_ALARM, TOPIC_DOOR, TOPIC_STATUS } = require("./topic")
 
-const brokerUrl = process.env.MQTT_BROKER_URL;
+const brokerUrl = process.env.MQTT_BROKER_URL
 
 // Keep one shared client for the whole process
 const client = mqtt.connect(brokerUrl, {
      reconnectPeriod: 2000,
      connectTimeout: 10_000,
-});
+})
 
 client.on("connect", () => {
-     console.log("Connected to MQTT", { brokerUrl });
+     console.log("Connected to MQTT", { brokerUrl })
 
      client.subscribe(TOPIC_STATUS, (err) => {
           if (!err) {
-               console.log("Subscribed to status topic");
+               console.log("Subscribed to status topic")
           }
-     });
-});
+     })
+})
 
 client.on("reconnect", () => {
-     console.log("Reconnecting MQTT...");
-});
+     console.log("Reconnecting MQTT...")
+})
 
 client.on("error", (err) => {
-     console.error("MQTT error:", err?.message || err);
-});
+     console.error("MQTT error:", err?.message || err)
+})
 
 client.on("message", (topic, message) => {
      const msg = message.toString()
