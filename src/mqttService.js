@@ -1,5 +1,5 @@
 const mqtt = require("mqtt")
-const { TOPIC_LIGHT, TOPIC_ALARM, TOPIC_DOOR, TOPIC_STATUS } = require("./topic")
+const { TOPIC_LIGHT, TOPIC_ALARM, TOPIC_DOOR, TOPIC_STATUS, TOPIC_CURTAIN, TOPIC_GET_DOOR_PASSWORD } = require("./topic")
 
 const brokerUrl = process.env.MQTT_BROKER_URL
 
@@ -29,9 +29,13 @@ client.on("error", (err) => {
 
 client.on("message", (topic, message) => {
      const msg = message.toString()
+     console.log(msg);
      const parts = topic.split('/')
      const deviceId = parts[1]  // INTELL/<deviceId>/status
-     console.log(`[${deviceId}] ${msg}`)
+     if (msg === 'GET_DOOR_PASSWORD') {
+          sentDoorPassword(deviceId, 1, '290304')
+     }
+     // console.log(`[${deviceId}] ${msg}`)
 })
 
 function triggerLight(espId, action, lightId) {
@@ -97,10 +101,52 @@ function triggerDoor(espId, action, doorId) {
      }
 }
 
+function sentDoorPassword(espId, doorId, password) {
+     const topic = `${espId}/${TOPIC_GET_DOOR_PASSWORD}`
+     if (!client.connected) {
+          const error = new Error("MQTT client is not connected yet")
+          error.code = "MQTT_NOT_CONNECTED"
+          throw error
+     } else {
+          client.publish(topic, password)
+     }
+     return {
+          brokerUrl,
+          topic,
+          password,
+          doorId
+     }
+}
+
+function triggerCurtain(espId, action, curtainID) {
+     const topic = `${espId}/${TOPIC_CURTAIN}`
+     if (!client.connected) {
+          const error = new Error("MQTT client is not connected yet")
+          error.code = "MQTT_NOT_CONNECTED"
+          throw error
+     } else {
+          if (action === 'open') {
+               client.publish(topic, `OPEN_${curtainID}`)
+          } else if (action === 'close') {
+               client.publish(topic, `CLOSE_${curtainID}`)
+          }
+     }
+     return {
+          brokerUrl,
+          topic,
+          action,
+          curtainId: curtainID
+     }
+}
+
 function fireAleart() {
      client.on("message", (topic, message) => {
+          // console.log(topic);
           const msg = message.toString()
-          console.log(msg)
+
+          if (msg === 'GET_DOOR_PASSWORD') {
+               sentDoorPassword()
+          }
      })
 }
 
@@ -110,4 +156,6 @@ module.exports = {
      triggerAlarm,
      triggerDoor,
      fireAleart,
+     triggerCurtain,
+     sentDoorPassword
 };
