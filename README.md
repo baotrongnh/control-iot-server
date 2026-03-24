@@ -1,224 +1,237 @@
 # mqtt-test-be
 
-> **Mục đích:** Đây là server mẫu dùng để **hướng dẫn team BE** cách tích hợp MQTT vào hệ thống backend chính để điều khiển thiết bị IoT (đèn, còi báo động, cửa) thông qua ESP32/ESP8266.
+Backend nhỏ để test điều khiển thiết bị IoT qua MQTT.
+Project này đang dùng Express để mở API, sau đó publish lệnh xuống ESP theo topic tương ứng.
 
----
+## Mục tiêu project
 
-## Cấu trúc project
+Project này phù hợp khi bạn cần:
 
-```
+- test nhanh luồng điều khiển đèn, còi, cửa, rèm;
+- kiểm tra broker MQTT có nhận lệnh đúng không;
+- làm mẫu để tách mqtt service sang project backend chính.
+
+## Công nghệ đang dùng
+
+- Node.js (CommonJS)
+- Express
+- MQTT.js
+- dotenv
+- nodemon
+
+## Cấu trúc thư mục
+
+```txt
 mqtt-test-be/
-├── src/
-│   ├── server.js        # Express server, định nghĩa các REST API
-│   ├── mqttService.js   # Logic kết nối MQTT, publish lệnh điều khiển
-│   └── topic.js         # Tập trung tất cả MQTT topic name
-├── .env                 # Biến môi trường (broker URL, port)
-├── package.json
-└── README.md
+  src/
+    server.js
+    mqttService.js
+    topic.js
+  .env
+  package.json
 ```
 
----
+Ý nghĩa nhanh:
 
-## Cài đặt
+- src/server.js: định nghĩa các API HTTP.
+- src/mqttService.js: quản lý kết nối MQTT và hàm publish.
+- src/topic.js: gom toàn bộ tên topic.
 
-### Yêu cầu
+## Cài đặt và chạy
 
-- Node.js >= 18
-- npm >= 9
-
-### Bước 1 — Cài thư viện
+1. Cài thư viện:
 
 ```bash
 npm install
 ```
 
-Các thư viện được cài:
-| Package | Mục đích |
-|---------|----------|
-| `express` | HTTP server |
-| `mqtt` | Kết nối MQTT broker |
-| `dotenv` | Đọc biến môi trường từ file `.env` |
-| `nodemon` | Tự restart server khi code thay đổi (dev) |
-
-### Bước 2 — Cấu hình `.env`
-
-Tạo hoặc chỉnh sửa file `.env` ở thư mục gốc:
+2. Tạo file .env (hoặc sửa file có sẵn):
 
 ```env
 MQTT_BROKER_URL=mqtt://broker.hivemq.com:1883
 PORT=3000
 ```
 
-> **Lưu ý:** Khi tích hợp vào hệ thống chính, thay `MQTT_BROKER_URL` thành địa chỉ broker thực tế của dự án.
+PORT là tùy chọn, không có thì mặc định 3000.
 
-### Bước 3 — Chạy server
+3. Chạy server:
 
 ```bash
 npm start
 ```
 
-Server chạy tại `http://localhost:3000`.
+Server sẽ lắng nghe tại http://localhost:3000
 
----
+## API hiện tại
 
-## Hướng dẫn tích hợp vào hệ thống chính
+### Kiểm tra online
 
-### 1. Copy file cần thiết
+GET /online
 
-Chỉ cần copy 2 file vào project chính:
-
-```
-src/mqttService.js   ← module xử lý MQTT (connect, publish, subscribe)
-src/topic.js         ← định nghĩa tên các topic
-```
-
-### 2. Đảm bảo `.env` có biến `MQTT_BROKER_URL`
-
-```env
-MQTT_BROKER_URL=mqtt://<địa_chỉ_broker>:<port>
-```
-
-### 3. Import và dùng trong route/controller
-
-```js
-const { triggerLight, triggerAlarm, triggerDoor } = require("./mqttService");
-
-// Bật đèn số 1 của thiết bị ESP_A101
-triggerLight("ESP_A101", "on", "1");
-
-// Tắt đèn số 1
-triggerLight("ESP_A101", "off", "1");
-
-// Bật còi báo động số 1
-triggerAlarm("ESP_A101", "on", "1");
-
-// Mở cửa số 1
-triggerDoor("ESP_A101", "open", "1");
-```
-
-> `mqttService.js` tạo **một MQTT client duy nhất dùng chung** cho toàn bộ server (singleton). Không cần khởi tạo lại mỗi lần gọi.
-
-### 4. Xử lý lỗi khi MQTT chưa kết nối
-
-Các hàm `triggerLight`, `triggerAlarm`, `triggerDoor` sẽ **throw error** với `error.code = "MQTT_NOT_CONNECTED"` nếu broker chưa kết nối. Nên bắt lỗi này:
-
-```js
-try {
-  triggerLight(espId, "on", lightId);
-} catch (err) {
-  if (err.code === "MQTT_NOT_CONNECTED") {
-    return res
-      .status(503)
-      .json({ message: "Thiết bị chưa kết nối, thử lại sau" });
-  }
-  return res.status(500).json({ message: err.message });
-}
-```
-
----
-
-## Cấu trúc MQTT Topic
-
-Được định nghĩa trong `src/topic.js`:
-
-| Hằng số        | Topic             | Chiều                    |
-| -------------- | ----------------- | ------------------------ |
-| `TOPIC_LIGHT`  | `light`           | Publish (server → ESP)   |
-| `TOPIC_ALARM`  | `alarm`           | Publish (server → ESP)   |
-| `TOPIC_DOOR`   | `door`            | Publish (server → ESP)   |
-| `TOPIC_STATUS` | `INTELL/+/status` | Subscribe (ESP → server) |
-
-Topic đầy đủ khi publish: `<espId>/<topic>`, ví dụ: `ESP_A101/light`
-
----
-
-## REST API hiện tại
-
-### `GET /health`
-
-Kiểm tra server còn sống không.
-
-**Response:**
-
-```json
-{ "ok": true }
-```
-
----
-
-### `GET /light/:espId/:action/:id`
-
-Điều khiển đèn.
-
-| Param    | Mô tả               | Giá trị hợp lệ |
-| -------- | ------------------- | -------------- |
-| `espId`  | ID của thiết bị ESP | VD: `ESP_A101` |
-| `action` | Hành động           | `on` / `off`   |
-| `id`     | ID của đèn          | VD: `1`, `2`   |
-
-**Ví dụ:** `GET /light/ESP_A101/on/1`
-
-**Response:**
+Trả về:
 
 ```json
 {
-  "success": true,
-  "message": "The lights have been turned on",
-  "details": {
-    "brokerUrl": "...",
-    "topic": "light",
-    "action": "on",
-    "lightId": "1"
-  }
+  "success": true
 }
 ```
 
----
+### Điều khiển đèn
 
-### `GET /alarm/:espId/:action/:id`
+POST /iot/devices/:espId/light/:id
 
-Điều khiển còi báo động.
+Body:
 
-| Param    | Giá trị hợp lệ |
-| -------- | -------------- |
-| `action` | `on` / `off`   |
-
-**Ví dụ:** `GET /alarm/ESP_A101/on/1`
-
----
-
-### `GET /door/:espId/:action/:id`
-
-Điều khiển cửa.
-
-| Param    | Giá trị hợp lệ   |
-| -------- | ---------------- |
-| `action` | `open` / `close` |
-
-**Ví dụ:** `GET /door/ESP_A101/open/1`
-
----
-
-## Payload gửi xuống ESP
-
-| Thiết bị | Payload                  |
-| -------- | ------------------------ |
-| Đèn bật  | `ON_<id>` → VD: `ON_1`   |
-| Đèn tắt  | `OFF_<id>` → VD: `OFF_1` |
-| Còi bật  | `ON_<id>`                |
-| Còi tắt  | `OFF_<id>`               |
-| Cửa mở   | `OPEN_<id>`              |
-| Cửa đóng | `CLOSE_<id>`             |
-
----
-
-## Lắng nghe trạng thái từ ESP
-
-Server tự động **subscribe** topic `INTELL/+/status` khi khởi động. Mỗi khi ESP gửi trạng thái lên, server sẽ log:
-
-```
-[ESP_A101] online
-[ESP_A101] offline
+```json
+{
+  "action": "on"
+}
 ```
 
-Để xử lý logic riêng (lưu DB, emit socket...), chỉnh hàm `client.on("message", ...)` trong `mqttService.js`.
+action hỗ trợ on hoặc off.
+
+Ví dụ:
+
+```bash
+curl -X POST http://localhost:3000/iot/devices/ESP_A101/light/1 \
+  -H "Content-Type: application/json" \
+  -d "{\"action\":\"on\"}"
+```
+
+### Điều khiển còi
+
+POST /iot/devices/:espId/alarm/:id
+
+Body:
+
+```json
+{
+  "action": "on"
+}
+```
+
+action hỗ trợ on hoặc off.
+
+### Điều khiển cửa
+
+POST /iot/devices/:espId/door/:id
+
+Body:
+
+```json
+{
+  "action": "open"
+}
+```
+
+action hỗ trợ open hoặc close.
+
+### Điều khiển rèm
+
+POST /iot/devices/:espId/curtain/:id
+
+Body:
+
+```json
+{
+  "action": "open"
+}
+```
+
+action hỗ trợ open hoặc close.
+
+### Gửi mật khẩu cửa
+
+POST /iot/devices/:espId/get-door-password/:id
+
+Body:
+
+```json
+{
+  "password": "290304"
+}
+```
+
+### Chạy test sequence
+
+POST /iot/devices/:espId/test-sequence
+
+Body (tùy chọn):
+
+```json
+{
+  "holdMs": 2000
+}
+```
+
+API này sẽ chạy lần lượt các bước bật/tắt thiết bị để test nhanh toàn bộ luồng.
+Nếu không truyền holdMs thì mặc định là 2000ms giữa mỗi bước.
+
+## Cách publish MQTT trong project này
+
+Topic gửi xuống thiết bị có format:
+
+espId/topic
+
+Ví dụ:
+
+- ESP_A101/light
+- ESP_A101/alarm
+- ESP_A101/door
+- ESP_A101/curtain
+- ESP_A101/get/door-password
+
+Payload đang dùng:
+
+- đèn, còi: ON_id hoặc OFF_id
+- cửa, rèm: OPEN_id hoặc CLOSE_id
+- gửi mật khẩu cửa: gửi thẳng chuỗi password
+
+Ngoài ra server subscribe topic trạng thái:
+
+INTELL/+/status
+
+Khi nhận message, xử lý ở hàm client.on("message") trong src/mqttService.js.
+
+## Cách tách vào backend chính
+
+Nếu bạn muốn nhúng vào backend khác, thường chỉ cần:
+
+1. Copy src/mqttService.js và src/topic.js.
+2. Thêm biến MQTT_BROKER_URL vào môi trường.
+3. Gọi các hàm trigger trong controller/service của hệ thống chính.
+
+Ví dụ gọi nhanh:
+
+```js
+const {
+  triggerLight,
+  triggerAlarm,
+  triggerDoor,
+  triggerCurtain,
+} = require("./mqttService");
+
+triggerLight("ESP_A101", "on", 1);
+triggerAlarm("ESP_A101", "off", 1);
+triggerDoor("ESP_A101", "open", 1);
+triggerCurtain("ESP_A101", "close", 1);
+```
+
+## Lưu ý lỗi thường gặp
+
+- MQTT chưa kết nối:
+  Các hàm trigger sẽ throw error với code MQTT_NOT_CONNECTED.
+  API sẽ trả 503.
+
+- Gửi action sai:
+  alarm chỉ nhận on/off.
+  door và curtain chỉ nhận open/close.
+  Truyền sai sẽ trả 400.
+
+- Đang chạy test-sequence mà gọi lại:
+  API sẽ trả 409 để tránh chồng lệnh.
+
+## Script npm
+
+- npm start: chạy bằng nodemon với src/server.js.
+- npm run dev: watch src/server.js bằng nodemon.
