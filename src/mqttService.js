@@ -29,13 +29,21 @@ client.on("error", (err) => {
 
 client.on("message", (topic, message) => {
      const msg = message.toString()
-     console.log(msg);
      const parts = topic.split('/')
-     const deviceId = parts[1]  // INTELL/<deviceId>/status
+     const deviceId = parts[1]  // HOMEIQ/<deviceId>/status
+     console.log(`[${deviceId}]: ${msg}`)
+
      if (msg === 'GET_DOOR_PASSWORD') {
           sentDoorPassword(deviceId, 1, '290304')
      }
-     // console.log(`[${deviceId}] ${msg}`)
+
+     if (msg === 'FIRE') {
+          console.log('CHÁY NÈ CHẠY ĐI');
+     }
+
+     if (msg === 'FIRE_ACK') {
+          console.log('HẾT CHÁY RỒI');
+     }
 })
 
 function triggerLight(espId, action, lightId) {
@@ -45,11 +53,7 @@ function triggerLight(espId, action, lightId) {
           error.code = "MQTT_NOT_CONNECTED"
           throw error
      } else {
-          if (action === 'on') {
-               client.publish(topic, `ON_${lightId}`)
-          } else if (action === 'off') {
-               client.publish(topic, `OFF_${lightId}`)
-          }
+          client.publish(topic, `${action}_${lightId}`)
      }
      return {
           brokerUrl,
@@ -66,11 +70,7 @@ function triggerAlarm(espId, action, alarmId) {
           error.code = "MQTT_NOT_CONNECTED"
           throw error
      } else {
-          if (action === 'on') {
-               client.publish(topic, `ON_${alarmId}`)
-          } else if (action === 'off') {
-               client.publish(topic, `OFF_${alarmId}`)
-          }
+          client.publish(topic, `${action}_${alarmId}`)
      }
      return {
           brokerUrl,
@@ -80,6 +80,7 @@ function triggerAlarm(espId, action, alarmId) {
      }
 }
 
+//ACTION: ON - OFF
 function triggerDoor(espId, action, doorId) {
      const topic = `${espId}/${TOPIC_DOOR}`
      if (!client.connected) {
@@ -87,11 +88,7 @@ function triggerDoor(espId, action, doorId) {
           error.code = "MQTT_NOT_CONNECTED"
           throw error
      } else {
-          if (action === 'open') {
-               client.publish(topic, `OPEN_${doorId}`)
-          } else if (action === 'close') {
-               client.publish(topic, `CLOSE_${doorId}`)
-          }
+          client.publish(topic, `${action}_${doorId}`)
      }
      return {
           brokerUrl,
@@ -125,11 +122,7 @@ function triggerCurtain(espId, action, curtainID) {
           error.code = "MQTT_NOT_CONNECTED"
           throw error
      } else {
-          if (action === 'open') {
-               client.publish(topic, `OPEN_${curtainID}`)
-          } else if (action === 'close') {
-               client.publish(topic, `CLOSE_${curtainID}`)
-          }
+          client.publish(topic, `${action}_${curtainID}`)
      }
      return {
           brokerUrl,
@@ -139,23 +132,11 @@ function triggerCurtain(espId, action, curtainID) {
      }
 }
 
-function fireAleart() {
-     client.on("message", (topic, message) => {
-          // console.log(topic);
-          const msg = message.toString()
-
-          if (msg === 'GET_DOOR_PASSWORD') {
-               sentDoorPassword()
-          }
-     })
-}
-
 module.exports = {
      client,
      triggerLight,
      triggerAlarm,
      triggerDoor,
-     fireAleart,
      triggerCurtain,
      sentDoorPassword
 };

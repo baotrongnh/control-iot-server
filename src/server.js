@@ -94,14 +94,15 @@ app.post("/iot/devices/:espId/door/:id", (req, res) => {
      }
 })
 
-app.post("/iot/devices/:espId/get-door-password/:id", (req, res) => {
+//SEND DOOR PASSWORD TO DEVICE
+app.post("/iot/devices/:espId/config-door-password/:id", (req, res) => {
      try {
           const { espId, id } = req.params
           const { password } = req.body
           const details = sentDoorPassword(espId, id, password)
           return res.json({
                success: true,
-               message: `Sent password`,
+               message: `Password sent successfully.`,
                details
           })
      } catch (err) {
