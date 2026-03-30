@@ -44,6 +44,10 @@ client.on("message", (topic, message) => {
      if (msg === 'FIRE_ACK') {
           console.log('HẾT CHÁY RỒI');
      }
+
+     if (msg === 'ONLINE') {
+          console.log('ONLINE');
+     }
 })
 
 function triggerLight(espId, action, lightId) {
@@ -129,6 +133,23 @@ function triggerCurtain(espId, action, curtainID) {
           topic,
           action,
           curtainId: curtainID
+     }
+}
+
+function checkOnline(espId, action, lightId) {
+     const topic = `HOMEIQ/${espId}/status`
+     if (!client.connected) {
+          const error = new Error("MQTT client is not connected yet")
+          error.code = "MQTT_NOT_CONNECTED"
+          throw error
+     } else {
+          client.publish(topic, `ARE_YOU_OK`)
+     }
+     return {
+          brokerUrl,
+          topic: TOPIC_LIGHT,
+          action,
+          lightId
      }
 }
 
