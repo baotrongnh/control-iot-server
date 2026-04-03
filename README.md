@@ -203,18 +203,18 @@ Bạn có thể bắt đầu từ model document đơn giản:
   "lastSeenAt": "2026-04-03T08:00:00.000Z",
   "devices": [
     {
-      "id": "LIGHT_01",
+      "id": "1",
       "type": "LIGHT",
       "topic": "light",
-      "channel": 1,
-      "state": "OFF"
+      "state": "OFF",
+      "name": "Đèn phòng ngủ"
     },
     {
-      "id": "DOOR_01",
+      "id": "1",
       "type": "DOOR",
       "topic": "door",
-      "channel": 1,
-      "state": "OFF"
+      "state": "OFF",
+      "name": "Cửa phòng khách"
     }
   ],
   "telemetry": {
